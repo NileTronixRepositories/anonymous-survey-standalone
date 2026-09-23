@@ -109,6 +109,13 @@ export class PublicAnonymousTemplateService {
     response: PublicAnonymousTemplateApiResponse,
     fallbackAnonymousTemplateId: string,
   ): PublicAnonymousTemplate {
+    const branch = response.branch
+      ? {
+          branchId: this.readRecordId(response.branch.branchId),
+          nameEn: response.branch.nameEn?.trim() ?? '',
+          nameAr: response.branch.nameAr?.trim() || null,
+        }
+      : null;
     const questions = (response.questions ?? [])
       .map((question) => this.toQuestion(question))
       .filter((question) => question.anonymousTemplateQuestionId.length > 0)
@@ -126,10 +133,12 @@ export class PublicAnonymousTemplateService {
       ...toScopeState(response),
       anonymousTemplateId:
         this.readRecordId(response.anonymousTemplateId) || fallbackAnonymousTemplateId,
-      branchId: this.readNullableRecordId(response.branchId),
+      branchId: this.readNullableRecordId(response.branchId) ?? branch?.branchId ?? null,
+      branch,
       nameEn: response.nameEn ?? '',
       nameAr: response.nameAr ?? null,
       description: response.description ?? null,
+      logoPath: response.logoPath?.trim() || null,
       activeFrom: response.activeFrom ?? '',
       expireTo: response.expireTo ?? null,
       customInputs: (response.customInputs ?? [])

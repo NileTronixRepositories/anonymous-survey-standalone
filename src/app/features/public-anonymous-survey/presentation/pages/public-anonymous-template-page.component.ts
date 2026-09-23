@@ -23,6 +23,7 @@ import {
 } from "lucide-angular";
 import type { LucideIconData } from "lucide-angular";
 import { I18nService } from "../../../../core/services/i18n.service";
+import { MediaUrlService } from "../../../../core/services/media-url.service";
 import {
   QUESTION_ANSWER_TYPE,
   toQuestionAnswerType,
@@ -50,6 +51,7 @@ const RATING_VALUES = [1, 2, 3, 4, 5] as const;
 const IMAGE_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const SUPPORTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
+const DEFAULT_TEMPLATE_LOGO_URL = "images/chg-logo.png";
 type PublicSurveyStep = "details" | "questions";
 
 @Component({
@@ -66,6 +68,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
+  private readonly mediaUrl = inject(MediaUrlService);
   private readonly publicSurveyBranding = inject(PublicSurveyBrandingService);
   private readonly publicSurveyVoiceRecorder = inject(
     PublicSurveyVoiceRecorderService,
@@ -110,6 +113,25 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
     const template = this.publicAnonymousTemplateStore.template();
     return template ? this.localizedText(template.description ?? "", null) : "";
   });
+
+  readonly branchName = computed(() => {
+    const branch = this.publicAnonymousTemplateStore.template()?.branch;
+    return branch ? this.localizedText(branch.nameEn, branch.nameAr) : "";
+  });
+
+  readonly templateLogoUrl = computed(() =>
+    this.mediaUrl.resolve(
+      this.publicAnonymousTemplateStore.template()?.logoPath,
+      DEFAULT_TEMPLATE_LOGO_URL,
+    ),
+  );
+
+  readonly templateLogoAlt = computed(
+    () =>
+      this.branchName() ||
+      this.templateName() ||
+      this.i18n.translate("publicAnonymousTemplates.cleopatraLogoAlt"),
+  );
 
   readonly visibleQuestions = computed<
     readonly PublicAnonymousTemplateQuestion[]
@@ -228,6 +250,14 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
 
   nextLanguageLabel(): string {
     return this.i18n.nextLanguageLabel();
+  }
+
+  useDefaultLogo(event: Event): void {
+    const image = event.currentTarget;
+
+    if (image instanceof HTMLImageElement && !image.src.endsWith(DEFAULT_TEMPLATE_LOGO_URL)) {
+      image.src = DEFAULT_TEMPLATE_LOGO_URL;
+    }
   }
 
   questionText(question: PublicAnonymousTemplateQuestion): string {

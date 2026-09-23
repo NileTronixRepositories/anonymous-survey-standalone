@@ -13,15 +13,23 @@ export type PublicVoiceAnswerSource = 'upload' | 'recording';
 export interface PublicAnonymousTemplate extends ScopeState {
   anonymousTemplateId: string;
   branchId: string | null;
+  branch: PublicAnonymousTemplateBranch | null;
   nameEn: string;
   nameAr: string | null;
   description: string | null;
+  logoPath: string | null;
   activeFrom: string;
   expireTo: string | null;
   customInputs: readonly PublicAnonymousTemplateCustomInput[];
   questions: readonly PublicAnonymousTemplateQuestion[];
   questionConditions: readonly PublicAnonymousTemplateQuestionCondition[];
   rootAnonymousTemplateQuestionIds: readonly string[];
+}
+
+export interface PublicAnonymousTemplateBranch {
+  branchId: string;
+  nameEn: string;
+  nameAr: string | null;
 }
 
 export interface PublicAnonymousTemplateCustomInput {
@@ -77,15 +85,23 @@ export interface PublicAnonymousTemplateQuestionCondition {
 export interface PublicAnonymousTemplateApiResponse extends ScopeApiFields {
   anonymousTemplateId?: string | number;
   branchId?: string | number | null;
+  branch?: PublicAnonymousTemplateBranchApiResponse | null;
   nameEn?: string | null;
   nameAr?: string | null;
   description?: string | null;
+  logoPath?: string | null;
   activeFrom?: string | null;
   expireTo?: string | null;
   customInputs?: readonly PublicAnonymousTemplateCustomInputApiResponse[];
   questions?: readonly PublicAnonymousTemplateQuestionApiResponse[];
   questionConditions?: readonly PublicAnonymousTemplateQuestionConditionApiResponse[];
   rootAnonymousTemplateQuestionIds?: readonly (string | number)[];
+}
+
+export interface PublicAnonymousTemplateBranchApiResponse {
+  branchId?: string | number | null;
+  nameEn?: string | null;
+  nameAr?: string | null;
 }
 
 export interface PublicAnonymousTemplateCustomInputApiResponse {
