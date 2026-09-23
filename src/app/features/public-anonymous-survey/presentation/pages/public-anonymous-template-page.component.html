@@ -1,37 +1,9 @@
 <main class="flex min-h-screen flex-col bg-[#F7F9FC] text-xs text-slate-700">
-  <header
-    class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur"
-  >
-    <div
-      class="public-survey-enter mx-auto grid min-h-16 w-full max-w-3xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 py-2.5 sm:min-h-20 sm:px-4 sm:py-3"
-    >
-      <span aria-hidden="true"></span>
-      <div class="min-w-0 text-center">
-        <img
-          class="mx-auto h-11 w-auto max-w-[34vw] object-contain transition duration-300 hover:scale-[1.02] sm:h-14"
-          [src]="templateLogoUrl()"
-          [attr.alt]="templateLogoAlt()"
-          (error)="useDefaultLogo($event)"
-        />
-        @if (branchName()) {
-          <p
-            class="mt-1 max-w-40 break-words text-[10px] font-bold leading-4 text-slate-500 sm:max-w-56 sm:text-[11px]"
-          >
-            {{ branchName() }}
-          </p>
-        }
-      </div>
-
-      <button
-        type="button"
-        class="inline-flex h-9 shrink-0 justify-self-end items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-600 shadow-sm transition duration-200 hover:border-[#11A7C9] hover:text-[#0D9FC0] hover:shadow-md sm:px-3"
-        (click)="toggleLanguage()"
-      >
-        <app-icon [icon]="languageIcon" [size]="14" />
-        {{ nextLanguageLabel() }}
-      </button>
-    </div>
-  </header>
+  <app-public-survey-header
+    [logoUrl]="templateLogoUrl()"
+    [logoAlt]="templateLogoAlt()"
+    [branchName]="branchName()"
+  />
 
   <section class="mx-auto w-full max-w-3xl flex-1 px-3 py-5 sm:px-4 sm:py-8">
     <div class="mb-6 text-center animate-fade-in-down">

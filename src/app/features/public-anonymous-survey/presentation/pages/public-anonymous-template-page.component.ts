@@ -43,6 +43,7 @@ import {
 import { TranslatePipe } from "../../../../shared/pipes/translate.pipe";
 import { IconComponent } from "../../../../shared/ui/icon/icon.component";
 import { PublicSurveyFooterComponent } from "../components/public-survey-footer.component";
+import { PublicSurveyHeaderComponent } from "../components/public-survey-header.component";
 import { PublicSurveyBrandingService } from "../services/public-survey-branding.service";
 import { PublicSurveyVoiceRecorderService } from "../services/public-survey-voice-recorder.service";
 import { PublicAnonymousTemplateStore } from "../state/public-anonymous-template.store";
@@ -57,7 +58,12 @@ type PublicSurveyStep = "details" | "questions";
 @Component({
   selector: "app-public-anonymous-template-page",
   standalone: true,
-  imports: [IconComponent, TranslatePipe, PublicSurveyFooterComponent],
+  imports: [
+    IconComponent,
+    TranslatePipe,
+    PublicSurveyHeaderComponent,
+    PublicSurveyFooterComponent,
+  ],
   providers: [PublicSurveyVoiceRecorderService],
   templateUrl: "./public-anonymous-template-page.component.html",
   styleUrl: "./public-anonymous-template-page.component.css",
