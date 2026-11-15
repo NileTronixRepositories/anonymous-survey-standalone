@@ -238,6 +238,6 @@ export class I18nService {
 
   private initialLanguage(): Language {
     const stored = this.document.defaultView?.localStorage.getItem(LANGUAGE_KEY);
-    return stored === 'ar' || stored === 'en' ? stored : 'en';
+    return stored === 'ar' || stored === 'en' ? stored : 'ar';
   }
 }
