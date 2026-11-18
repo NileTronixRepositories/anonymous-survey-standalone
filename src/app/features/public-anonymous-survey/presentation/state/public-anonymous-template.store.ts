@@ -137,6 +137,22 @@ export class PublicAnonymousTemplateStore {
     const resourceKey = this.readResourceKey(error);
     const normalizedKey = resourceKey.replace(/[\s_.-]/g, '').toLowerCase();
 
+    const validationMessages: Record<string, string> = {
+      dropdownanswerinvalid: 'dropdownInvalid',
+      rating1to10answerinvalid: 'rating1To10Invalid',
+      freetextanswerinvalid: 'textRequired',
+      custominputdateinvalid: 'dateInvalid',
+      custominputstartwithinvalid: 'startWithRejected',
+      visiblequestionmissinganswer: 'missingVisibleAnswers',
+      hiddenquestionanswernotallowed: 'hiddenAnswersRejected',
+      questiontypeunsupported: 'unsupportedQuestion',
+      unsupportedquestiontype: 'unsupportedQuestion',
+    };
+    const validationKey = Object.keys(validationMessages).find((key) => normalizedKey.endsWith(key));
+    if (validationKey) {
+      return `publicAnonymousTemplates.${validationMessages[validationKey]}`;
+    }
+
     if (normalizedKey.includes('image')) {
       if (
         normalizedKey.includes('required') ||

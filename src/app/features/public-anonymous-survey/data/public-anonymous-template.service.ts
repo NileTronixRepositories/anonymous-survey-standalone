@@ -7,6 +7,7 @@ import {
 } from '../../../core/interceptors/error-toast.interceptor';
 import { SKIP_AUTH } from '../../../core/interceptors/auth.interceptor';
 import { APP_RUNTIME_CONFIG } from '../../../core/config/app-runtime-config';
+import { QUESTION_ANSWER_TYPE, toQuestionAnswerType } from '../../../shared/models/question-answer.model';
 import { toScopeState } from '../../../shared/models/resource-scope.model';
 import {
   PublicAnonymousTemplate,
@@ -68,6 +69,10 @@ export class PublicAnonymousTemplateService {
         formData.append(`${prefix}.stringValue`, customInput.stringValue);
       }
 
+      if (customInput.dateValue !== null) {
+        formData.append(`${prefix}.dateValue`, customInput.dateValue);
+      }
+
       if (customInput.integerValue !== null) {
         formData.append(`${prefix}.integerValue`, String(customInput.integerValue));
       }
@@ -83,6 +88,10 @@ export class PublicAnonymousTemplateService {
 
       if (answer.starRatingValue !== null) {
         formData.append(`${prefix}.starRatingValue`, String(answer.starRatingValue));
+      }
+
+      if (answer.rating1To10Value !== null) {
+        formData.append(`${prefix}.rating1To10Value`, String(answer.rating1To10Value));
       }
 
       if (answer.smileValue !== null) {
@@ -158,7 +167,7 @@ export class PublicAnonymousTemplateService {
   private toCustomInput(
     response: PublicAnonymousTemplateCustomInputApiResponse,
   ): PublicAnonymousTemplateCustomInput {
-    const type = this.toCustomInputType(response.type ?? response.typeName);
+    const type = this.toCustomInputType(response.systemFieldKey === 'VisitTime' ? 3 : response.type ?? response.typeName);
 
     return {
       customInputId: this.readRecordId(response.customInputId),
@@ -166,7 +175,9 @@ export class PublicAnonymousTemplateService {
       labelEn: response.labelEn ?? null,
       labelAr: response.labelAr ?? null,
       type,
-      typeName: response.typeName ?? (type === 2 ? 'Integer' : 'String'),
+      typeName: response.typeName ?? (type === 3 ? 'Date' : type === 2 ? 'Integer' : 'String'),
+      systemFieldKey: response.systemFieldKey ?? null,
+      startWith: response.startWith ?? null,
       isRequired: response.isRequired ?? false,
       minLength: response.minLength ?? null,
       maxLength: response.maxLength ?? null,
@@ -188,12 +199,14 @@ export class PublicAnonymousTemplateService {
       groupNameAr: response.groupNameAr ?? null,
       textEn: response.textEn ?? '',
       textAr: response.textAr ?? null,
-      type: this.toNumber(response.type),
+      type: toQuestionAnswerType(response.type) ?? toQuestionAnswerType(response.typeName),
       typeName: response.typeName ?? '',
       order: response.order ?? 0,
+      isRequired: response.isRequired ?? true,
       isRoot: response.isRoot ?? false,
       options: (response.options ?? [])
-        .map((option) => this.toQuestionOption(option))
+        .map((option) => this.toQuestionOption(option,
+          (toQuestionAnswerType(response.type) ?? toQuestionAnswerType(response.typeName)) === QUESTION_ANSWER_TYPE.SingleChoice))
         .filter((option) => option.optionId.length > 0)
         .sort((first, second) => first.order - second.order),
     };
@@ -201,24 +214,16 @@ export class PublicAnonymousTemplateService {
 
   private toQuestionOption(
     response: PublicAnonymousTemplateQuestionOptionApiResponse,
+    stripScore: boolean,
   ): PublicAnonymousTemplateQuestionOption {
     return {
       optionId: this.readRecordId(response.optionId),
       questionId: this.readRecordId(response.questionId),
-      textEn: this.toCustomerFacingOptionText(response.textEn),
-      textAr: this.toNullableCustomerFacingOptionText(response.textAr),
+      textEn: stripScore ? this.stripOptionScoreLabel(response.textEn ?? '') : response.textEn ?? '',
+      textAr: stripScore ? this.stripOptionScoreLabel(response.textAr ?? '') || null : response.textAr ?? null,
       order: response.order ?? 0,
       value: response.value ?? null,
     };
-  }
-
-  private toCustomerFacingOptionText(value: string | null | undefined): string {
-    return this.stripOptionScoreLabel(value ?? '');
-  }
-
-  private toNullableCustomerFacingOptionText(value: string | null | undefined): string | null {
-    const optionText = this.stripOptionScoreLabel(value ?? '');
-    return optionText.length > 0 ? optionText : null;
   }
 
   private stripOptionScoreLabel(value: string): string {
@@ -299,6 +304,7 @@ export class PublicAnonymousTemplateService {
       .trim()
       .toLowerCase();
 
+    if (normalizedType === '3' || normalizedType === 'date') return 3;
     return normalizedType === '2' || normalizedType === 'integer' ? 2 : 1;
   }
 

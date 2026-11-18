@@ -104,7 +104,10 @@
                     </span>
                     <input
                       class="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-950 outline-none transition duration-200 placeholder:text-slate-300 hover:border-slate-300 focus:border-[#11A7C9] focus:bg-white focus:ring-4 focus:ring-cyan-50"
-                      [type]="input.type === 2 ? 'number' : 'text'"
+                      [type]="input.type === 3 ? 'date' : input.type === 2 ? 'number' : 'text'"
+                      [required]="input.isRequired"
+                      [attr.aria-invalid]="validationSubmitted() && !!customInputError(input)"
+                      [attr.aria-describedby]="'custom-error-' + input.customInputId"
                       [value]="customInputValue(input)"
                       [attr.min]="input.type === 2 ? input.minValue : null"
                       [attr.max]="input.type === 2 ? input.maxValue : null"
@@ -119,6 +122,8 @@
                     @if (validationSubmitted() && customInputError(input)) {
                       <p
                         class="mt-1.5 text-[11px] font-semibold text-[#D94B5A]"
+                        [id]="'custom-error-' + input.customInputId"
+                        role="alert"
                       >
                         {{ customInputError(input) }}
                       </p>
@@ -153,6 +158,8 @@
                     {{ answeredVisibleQuestionsCount() }} /
                     {{ visibleQuestions().length }}
                     {{ "publicAnonymousTemplates.answered" | t }}
+                    &middot; {{ missingRequiredQuestionsCount() }}
+                    {{ "publicAnonymousTemplates.requiredRemaining" | t }}
                   </span>
                 </div>
                 <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
@@ -168,9 +175,13 @@
               >
                 <div class="mb-4 flex items-start justify-between gap-3">
                   <h2
+                    id="survey-question-title"
                     class="min-w-0 flex-1 break-words text-sm font-extrabold leading-6 text-slate-950 sm:text-base sm:leading-7"
                   >
                     {{ questionText(question) }}
+                    <span class="block text-xs font-semibold text-slate-500">
+                      {{ (question.isRequired ? "publicAnonymousTemplates.required" : "publicAnonymousTemplates.optional") | t }}
+                    </span>
                   </h2>
                   <span
                     class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E8F8FC] text-sm font-extrabold text-[#0D9FC0] ring-1 ring-[#B7EAF4]/60"
@@ -179,7 +190,7 @@
                   </span>
                 </div>
 
-                @switch (questionKind(question)) {
+                @switch (questionKind(question) === "freeText" ? "complain" : questionKind(question)) {
                   @case ("singleChoice") {
                     <div class="space-y-2.5">
                       @for (option of question.options; track option.optionId) {
@@ -247,6 +258,37 @@
                     </div>
                   }
 
+                  @case ("dropdown") {
+                    <select
+                      class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-950 focus:border-[#11A7C9] focus:outline-2 focus:outline-cyan-700"
+                      aria-labelledby="survey-question-title"
+                      aria-describedby="survey-question-error"
+                      [required]="question.isRequired"
+                      [attr.aria-invalid]="!!questionError(question)"
+                      (change)="setDropdownAnswer(question.anonymousTemplateQuestionId, $event)"
+                    >
+                      <option value="" [selected]="!answerFor(question.anonymousTemplateQuestionId).selectedQuestionOptionId">{{ "publicAnonymousTemplates.dropdownPlaceholder" | t }}</option>
+                      @for (option of question.options; track option.optionId) {
+                        <option [value]="option.optionId" [selected]="isSingleChoiceSelected(question.anonymousTemplateQuestionId, option.optionId)">{{ optionPrimaryText(option) }}</option>
+                      }
+                    </select>
+                  }
+
+                  @case ("rating1To10") {
+                    <div class="grid grid-cols-5 gap-2 sm:grid-cols-10" role="group" aria-labelledby="survey-question-title" aria-describedby="rating-ten-hint survey-question-error">
+                      @for (value of tenRatingValues; track value) {
+                        <button type="button"
+                          class="h-11 rounded-lg border border-slate-300 text-base font-bold hover:border-cyan-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700"
+                          [class.bg-cyan-100]="answerFor(question.anonymousTemplateQuestionId).rating1To10Value === value"
+                          [attr.aria-pressed]="answerFor(question.anonymousTemplateQuestionId).rating1To10Value === value"
+                          (click)="setRating1To10Answer(question.anonymousTemplateQuestionId, value)">
+                          {{ value }}
+                        </button>
+                      }
+                    </div>
+                    <p id="rating-ten-hint" class="mt-2 text-xs text-slate-500">{{ "publicAnonymousTemplates.rating1To10Hint" | t }}</p>
+                  }
+
                   @case ("starRating") {
                     <div class="space-y-2">
                       <div
@@ -297,30 +339,32 @@
                       <div
                         class="inline-flex max-w-full flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white"
                       >
-                        @for (value of ratingValues; track value) {
+                        @for (level of smileLevels; track level.value) {
                           <button
                             type="button"
+                            [attr.aria-label]="level.labelKey | t"
+                            [attr.aria-pressed]="isSmileSelected(question.anonymousTemplateQuestionId, level.value)"
                             class="h-11 min-w-14 border-e border-slate-200 px-3 text-sm font-bold transition duration-200 last:border-e-0 hover:bg-emerald-50"
                             [class.bg-emerald-50]="
                               isSmileSelected(
                                 question.anonymousTemplateQuestionId,
-                                value
+                                level.value
                               )
                             "
                             [class.text-emerald-700]="
                               isSmileSelected(
                                 question.anonymousTemplateQuestionId,
-                                value
+                                level.value
                               )
                             "
                             (click)="
                               setSmileAnswer(
                                 question.anonymousTemplateQuestionId,
-                                value
+                                level.value
                               )
                             "
                           >
-                            {{ value }}
+                            <span aria-hidden="true" class="text-2xl">{{ level.emoji }}</span>
                           </button>
                         }
                       </div>
@@ -332,6 +376,10 @@
 
                   @case ("complain") {
                     <textarea
+                      aria-labelledby="survey-question-title"
+                      aria-describedby="survey-question-error"
+                      [required]="question.isRequired"
+                      [attr.aria-invalid]="!!questionError(question)"
                       class="min-h-28 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-950 outline-none transition duration-200 focus:border-[#11A7C9] focus:ring-4 focus:ring-cyan-50"
                       [value]="
                         answerFor(question.anonymousTemplateQuestionId)
@@ -350,6 +398,7 @@
                   }
 
                   @case ("voice") {
+                    <p class="mb-3 text-sm text-amber-800" role="status">{{ "publicAnonymousTemplates.voicePersistenceUnavailable" | t }}</p>
                     <div
                       class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 transition duration-200 hover:border-[#11A7C9] hover:bg-[#F5FCFE]"
                     >
@@ -597,13 +646,14 @@
                   }
                 }
 
-                @if (questionError(question)) {
-                  <p
-                    class="mt-3 border-s-2 border-[#D94B5A] bg-rose-50 px-3 py-2 text-[11px] font-semibold text-[#D94B5A]"
+                <p
+                    id="survey-question-error"
+                    [hidden]="!questionError(question)"
+                    role="alert"
+                    class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"
                   >
                     {{ questionError(question) }}
                   </p>
-                }
               </article>
             }
           </section>

@@ -5,6 +5,9 @@ export const QUESTION_ANSWER_TYPE = {
   Complain: 4,
   Smiles: 5,
   Image: 6,
+  FreeText: 7,
+  Rating1To10: 8,
+  Dropdown: 9,
 } as const;
 
 export type QuestionAnswerType =
@@ -64,6 +67,9 @@ export const QUESTION_ANSWER_TYPE_LABEL_KEYS: Record<
   [QUESTION_ANSWER_TYPE.Complain]: "questions.typeComplain",
   [QUESTION_ANSWER_TYPE.Smiles]: "questions.typeSmiles",
   [QUESTION_ANSWER_TYPE.Image]: "questions.typeImage",
+  [QUESTION_ANSWER_TYPE.FreeText]: "questions.typeFreeText",
+  [QUESTION_ANSWER_TYPE.Rating1To10]: "questions.typeRating1To10",
+  [QUESTION_ANSWER_TYPE.Dropdown]: "questions.typeDropdown",
 };
 
 export const SMILE_LEVELS: readonly SmileLevel[] = [
@@ -88,6 +94,9 @@ export function toQuestionAnswerType(
     }
 
     const normalized = normalizeQuestionAnswerType(value);
+    if (normalized === "freetext") return QUESTION_ANSWER_TYPE.FreeText;
+    if (normalized === "rating1to10") return QUESTION_ANSWER_TYPE.Rating1To10;
+    if (normalized === "dropdown") return QUESTION_ANSWER_TYPE.Dropdown;
     if (
       normalized === "singlechoice" ||
       normalized === "multichoice" ||
@@ -104,7 +113,6 @@ export function toQuestionAnswerType(
     if (
       normalized === "complain" ||
       normalized === "complaint" ||
-      normalized === "freetext" ||
       normalized === "textarea"
     ) {
       return QUESTION_ANSWER_TYPE.Complain;
@@ -176,7 +184,10 @@ function isQuestionAnswerType(value: number): value is QuestionAnswerType {
     value === QUESTION_ANSWER_TYPE.StarRating ||
     value === QUESTION_ANSWER_TYPE.Complain ||
     value === QUESTION_ANSWER_TYPE.Smiles ||
-    value === QUESTION_ANSWER_TYPE.Image
+    value === QUESTION_ANSWER_TYPE.Image ||
+    value === QUESTION_ANSWER_TYPE.FreeText ||
+    value === QUESTION_ANSWER_TYPE.Rating1To10 ||
+    value === QUESTION_ANSWER_TYPE.Dropdown
   );
 }
 

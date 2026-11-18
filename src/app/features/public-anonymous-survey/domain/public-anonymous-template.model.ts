@@ -1,13 +1,17 @@
 import { ScopeApiFields, ScopeState } from '../../../shared/models/resource-scope.model';
 
-export type PublicCustomInputType = 1 | 2;
+export type PublicCustomInputType = 1 | 2 | 3;
 export type PublicQuestionKind =
   | 'singleChoice'
   | 'starRating'
   | 'smiles'
   | 'complain'
   | 'voice'
-  | 'image';
+  | 'image'
+  | 'freeText'
+  | 'rating1To10'
+  | 'dropdown'
+  | 'unsupported';
 export type PublicVoiceAnswerSource = 'upload' | 'recording';
 
 export interface PublicAnonymousTemplate extends ScopeState {
@@ -39,6 +43,8 @@ export interface PublicAnonymousTemplateCustomInput {
   labelAr: string | null;
   type: PublicCustomInputType;
   typeName: string;
+  systemFieldKey: string | null;
+  startWith: string | null;
   isRequired: boolean;
   minLength: number | null;
   maxLength: number | null;
@@ -58,6 +64,7 @@ export interface PublicAnonymousTemplateQuestion extends ScopeState {
   type: number | null;
   typeName: string;
   order: number;
+  isRequired: boolean;
   isRoot: boolean;
   options: readonly PublicAnonymousTemplateQuestionOption[];
 }
@@ -111,6 +118,8 @@ export interface PublicAnonymousTemplateCustomInputApiResponse {
   labelAr?: string | null;
   type?: number | string | null;
   typeName?: string | null;
+  systemFieldKey?: string | null;
+  startWith?: string | null;
   isRequired?: boolean;
   minLength?: number | null;
   maxLength?: number | null;
@@ -130,6 +139,7 @@ export interface PublicAnonymousTemplateQuestionApiResponse extends ScopeApiFiel
   type?: number | string | null;
   typeName?: string | null;
   order?: number | null;
+  isRequired?: boolean;
   isRoot?: boolean;
   options?: readonly PublicAnonymousTemplateQuestionOptionApiResponse[];
 }
@@ -157,6 +167,7 @@ export interface PublicAnonymousTemplateQuestionConditionApiResponse {
 export interface PublicAnonymousAnswerDraft {
   selectedQuestionOptionId: string;
   starRatingValue: number | null;
+  rating1To10Value: number | null;
   smileValue: number | null;
   textAnswer: string;
   voiceFileName: string;
@@ -176,12 +187,14 @@ export interface PublicAnonymousCustomInputValuePayload {
   customInputId: string;
   stringValue: string | null;
   integerValue: number | null;
+  dateValue: string | null;
 }
 
 export interface PublicAnonymousAnswerPayload {
   anonymousTemplateQuestionId: string;
   selectedQuestionOptionId: string | null;
   starRatingValue: number | null;
+  rating1To10Value: number | null;
   smileValue: number | null;
   textAnswer: string | null;
   voiceFileName: string | null;

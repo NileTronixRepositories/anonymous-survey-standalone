@@ -14,7 +14,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleStop,
-  Languages,
   Mic,
   Trash2,
   Upload,
@@ -26,6 +25,7 @@ import { I18nService } from "../../../../core/services/i18n.service";
 import { MediaUrlService } from "../../../../core/services/media-url.service";
 import {
   QUESTION_ANSWER_TYPE,
+  SMILE_LEVELS,
   toQuestionAnswerType,
 } from "../../../../shared/models/question-answer.model";
 import {
@@ -81,7 +81,6 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
   );
 
   readonly alertIcon = AlertCircle;
-  readonly languageIcon = Languages;
   readonly micIcon = Mic;
   readonly stopRecordingIcon = CircleStop;
   readonly removeVoiceIcon = Trash2;
@@ -90,6 +89,8 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
   readonly sendIcon = Send;
   readonly starIcon = Star;
   readonly ratingValues = RATING_VALUES;
+  readonly tenRatingValues = Array.from({ length: 10 }, (_, index) => index + 1);
+  readonly smileLevels = SMILE_LEVELS;
 
   readonly customInputValues = signal<Readonly<Record<string, string>>>({});
   readonly answers = signal<
@@ -189,43 +190,19 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
       this.isQuestionsStep() &&
       this.currentVisibleQuestionIndex() < this.visibleQuestions().length - 1,
   );
-  readonly shouldShowNextAction = computed(() => {
-    if (this.isDetailsStep()) {
-      return true;
-    }
-
-    const question = this.currentQuestion();
-    return (
-      this.canGoNext() ||
-      (question !== null &&
-        !this.hasAnswer(question) &&
-        this.hasPotentialChildQuestion(question))
-    );
-  });
-  readonly isLastVisibleQuestion = computed(() => {
-    const visibleQuestionsCount = this.visibleQuestions().length;
-    return (
-      visibleQuestionsCount > 0 &&
-      this.currentVisibleQuestionIndex() === visibleQuestionsCount - 1 &&
-      !this.shouldShowNextAction()
-    );
-  });
-  readonly hierarchyDepthByQuestionId = computed<
-    Readonly<Record<string, number>>
-  >(() => {
-    const template = this.publicAnonymousTemplateStore.template();
-    return template ? this.buildQuestionHierarchyDepths(template) : {};
-  });
-
+  readonly shouldShowNextAction = computed(() => this.isDetailsStep() || this.canGoNext());
   readonly answeredVisibleQuestionsCount = computed(
     () =>
       this.visibleQuestions().filter((question) => this.hasAnswer(question))
         .length,
   );
+  readonly missingRequiredQuestionsCount = computed(() =>
+    this.visibleQuestions().filter((question) => question.isRequired && !this.hasAnswer(question)).length,
+  );
   readonly progressPercent = computed(() => {
     const visibleQuestionsCount = this.visibleQuestions().length;
     return visibleQuestionsCount > 0
-      ? (this.answeredVisibleQuestionsCount() / visibleQuestionsCount) * 100
+      ? (this.visibleQuestions().filter((question) => this.isQuestionValid(question)).length / visibleQuestionsCount) * 100
       : 0;
   });
   readonly canSubmit = computed(
@@ -250,14 +227,6 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
     this.publicSurveyBranding.restoreAppBranding();
   }
 
-  toggleLanguage(): void {
-    this.i18n.toggleLanguage();
-  }
-
-  nextLanguageLabel(): string {
-    return this.i18n.nextLanguageLabel();
-  }
-
   useDefaultLogo(event: Event): void {
     const image = event.currentTarget;
 
@@ -268,39 +237,6 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
 
   questionText(question: PublicAnonymousTemplateQuestion): string {
     return this.localizedText(question.textEn, question.textAr);
-  }
-
-  isRootQuestion(question: PublicAnonymousTemplateQuestion): boolean {
-    const template = this.publicAnonymousTemplateStore.template();
-
-    return template
-      ? template.rootAnonymousTemplateQuestionIds.includes(
-          question.anonymousTemplateQuestionId,
-        )
-      : question.isRoot;
-  }
-
-  questionHierarchyDepth(question: PublicAnonymousTemplateQuestion): number {
-    const depth =
-      this.hierarchyDepthByQuestionId()[question.anonymousTemplateQuestionId];
-    return depth ?? (this.isRootQuestion(question) ? 0 : 1);
-  }
-
-  hasPotentialChildQuestion(
-    question: PublicAnonymousTemplateQuestion,
-  ): boolean {
-    const template = this.publicAnonymousTemplateStore.template();
-    return template
-      ? template.questionConditions.some(
-          (condition) =>
-            condition.parentAnonymousTemplateQuestionId ===
-            question.anonymousTemplateQuestionId,
-        )
-      : false;
-  }
-
-  groupName(question: PublicAnonymousTemplateQuestion): string {
-    return this.localizedText(question.groupNameEn, question.groupNameAr);
   }
 
   customInputLabel(input: PublicAnonymousTemplateCustomInput): string {
@@ -327,7 +263,14 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
       return "";
     }
 
+    if (input.type === 3 && !this.isCalendarDate(value)) {
+      return this.i18n.translate("publicAnonymousTemplates.dateInvalid");
+    }
+
     if (input.type === 1) {
+      if (input.startWith && !value.startsWith(input.startWith)) {
+        return this.i18n.translate("publicAnonymousTemplates.startWithInvalid").replace("{prefix}", input.startWith);
+      }
       if (input.minLength !== null && value.length < input.minLength) {
         return `${this.i18n.translate("publicAnonymousTemplates.minLength")} ${input.minLength}`;
       }
@@ -379,6 +322,14 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
       ...this.emptyAnswer(),
       starRatingValue: value,
     });
+  }
+
+  setRating1To10Answer(questionId: string, value: number): void {
+    this.replaceAnswer(questionId, { ...this.emptyAnswer(), rating1To10Value: value });
+  }
+
+  setDropdownAnswer(questionId: string, event: Event): void {
+    this.setSingleChoiceAnswer(questionId, this.readInputValue(event));
   }
 
   setSmileAnswer(questionId: string, value: number): void {
@@ -488,21 +439,9 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
   }
 
   voiceAnswerSourceLabel(questionId: string): string {
-    const source = this.answerFor(questionId).voiceSource;
-
-    if (source === "recording") {
-      return this.i18n.translate(
-        "publicAnonymousTemplates.recordedVoiceAnswer",
-      );
-    }
-
-    if (source === "upload") {
-      return this.i18n.translate(
-        "publicAnonymousTemplates.uploadedVoiceAnswer",
-      );
-    }
-
-    return "";
+    return this.answerFor(questionId).voiceSource
+      ? this.i18n.translate("publicAnonymousTemplates.localVoicePreview")
+      : "";
   }
 
   voiceRecordingTimer(): string {
@@ -541,7 +480,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.hasAnswer(question)) {
+    if (!this.isQuestionValid(question)) {
       this.navigationQuestionId.set(question.anonymousTemplateQuestionId);
       this.validationError.set("publicAnonymousTemplates.answerToContinue");
       return;
@@ -584,37 +523,23 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
   }
 
   questionKind(question: PublicAnonymousTemplateQuestion): PublicQuestionKind {
-    const answerType = toQuestionAnswerType(question.typeName || question.type);
-
-    if (answerType === QUESTION_ANSWER_TYPE.SingleChoice) {
-      return "singleChoice";
+    const answerType = toQuestionAnswerType(question.type) ?? toQuestionAnswerType(question.typeName);
+    switch (answerType) {
+      case QUESTION_ANSWER_TYPE.SingleChoice: return "singleChoice";
+      case QUESTION_ANSWER_TYPE.Voice: return "voice";
+      case QUESTION_ANSWER_TYPE.StarRating: return "starRating";
+      case QUESTION_ANSWER_TYPE.Complain: return "complain";
+      case QUESTION_ANSWER_TYPE.Smiles: return "smiles";
+      case QUESTION_ANSWER_TYPE.Image: return "image";
+      case QUESTION_ANSWER_TYPE.FreeText: return "freeText";
+      case QUESTION_ANSWER_TYPE.Rating1To10: return "rating1To10";
+      case QUESTION_ANSWER_TYPE.Dropdown: return "dropdown";
+      default: return "unsupported";
     }
-    if (answerType === QUESTION_ANSWER_TYPE.StarRating) {
-      return "starRating";
-    }
-    if (answerType === QUESTION_ANSWER_TYPE.Smiles) {
-      return "smiles";
-    }
-    if (answerType === QUESTION_ANSWER_TYPE.Complain) {
-      return "complain";
-    }
-    if (answerType === QUESTION_ANSWER_TYPE.Image) {
-      return "image";
-    }
-
-    return "voice";
   }
 
   optionPrimaryText(option: PublicAnonymousTemplateQuestionOption): string {
-    return this.toCustomerFacingOptionText(
-      this.localizedText(option.textEn, option.textAr),
-    );
-  }
-
-  private toCustomerFacingOptionText(value: string): string {
-    return value
-      .replace(/\s*(?:[-|]\s*)?(?:Value|Score)\s+[1-5]\s*$/i, "")
-      .trim();
+    return this.localizedText(option.textEn, option.textAr);
   }
 
   isSingleChoiceSelected(questionId: string, optionId: string): boolean {
@@ -630,44 +555,71 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
   }
 
   hasAnswer(question: PublicAnonymousTemplateQuestion): boolean {
-    const answer = this.answers()[question.anonymousTemplateQuestionId];
+    return this.hasValidAnswer(question, this.answers()[question.anonymousTemplateQuestionId]);
+  }
+
+  private hasValidAnswer(
+    question: PublicAnonymousTemplateQuestion,
+    answer: PublicAnonymousAnswerDraft | undefined,
+  ): boolean {
     if (!answer) {
       return false;
     }
 
     const kind = this.questionKind(question);
 
-    if (kind === "singleChoice") {
-      return answer.selectedQuestionOptionId.length > 0;
+    switch (kind) {
+      case "singleChoice":
+      case "dropdown":
+        return question.options.some((option) => option.optionId === answer.selectedQuestionOptionId);
+      case "starRating": return this.isRatingInRange(answer.starRatingValue, 5);
+      case "rating1To10": return this.isRatingInRange(answer.rating1To10Value, 10);
+      case "smiles": return this.isRatingInRange(answer.smileValue, 5);
+      case "complain":
+      case "freeText": return answer.textAnswer.trim().length > 0;
+      case "image": return answer.imageFile !== null && this.isSupportedImageFile(answer.imageFile);
+      // Local previews have no persisted server reference; the backend upload contract is pending.
+      case "voice":
+      case "unsupported": return false;
     }
-    if (kind === "starRating") {
-      return answer.starRatingValue !== null;
-    }
-    if (kind === "smiles") {
-      return answer.smileValue !== null;
-    }
-    if (kind === "complain") {
-      return answer.textAnswer.trim().length > 0;
-    }
-    if (kind === "image") {
-      return answer.imageFile !== null;
-    }
+  }
 
-    return answer.voiceFileName.length > 0;
+  private isRatingInRange(value: number | null, maximum: number): boolean {
+    return value !== null && Number.isInteger(value) && value >= 1 && value <= maximum;
+  }
+
+  private hasAnswerInput(question: PublicAnonymousTemplateQuestion): boolean {
+    const answer = this.answers()[question.anonymousTemplateQuestionId];
+    return !!answer && (answer.selectedQuestionOptionId !== "" ||
+      answer.starRatingValue !== null || answer.rating1To10Value !== null ||
+      answer.smileValue !== null || answer.textAnswer.trim() !== "" ||
+      answer.voiceFileName !== "" || answer.imageFile !== null);
+  }
+
+  private isQuestionValid(question: PublicAnonymousTemplateQuestion): boolean {
+    return this.questionKind(question) !== "unsupported" &&
+      (this.hasAnswer(question) || (!question.isRequired && !this.hasAnswerInput(question)));
   }
 
   questionError(question: PublicAnonymousTemplateQuestion): string {
-    const shouldShowError =
-      this.validationSubmitted() ||
+    const kind = this.questionKind(question);
+    if (kind === "unsupported") return this.i18n.translate("publicAnonymousTemplates.unsupportedQuestion");
+    const shouldShowError = this.validationSubmitted() ||
       this.navigationQuestionId() === question.anonymousTemplateQuestionId;
+    if (!shouldShowError || this.isQuestionValid(question)) return "";
+    const key = kind === "voice" ? "voicePersistenceUnavailable" :
+      kind === "dropdown" ? (this.hasAnswerInput(question) ? "dropdownInvalid" : "dropdownRequired") :
+      kind === "rating1To10" ? "rating1To10Invalid" :
+      kind === "freeText" ? "textRequired" : "questionRequiredError";
+    return this.i18n.translate(`publicAnonymousTemplates.${key}`);
+  }
 
-    if (!shouldShowError || this.hasAnswer(question)) {
-      return "";
-    }
-
-    return this.i18n.translate(
-      "publicAnonymousTemplates.questionRequiredError",
-    );
+  private isCalendarDate(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split("-").map(Number);
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return year > 0 && month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1];
   }
 
   submitSurvey(): void {
@@ -721,7 +673,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
           (value): value is PublicAnonymousCustomInputValuePayload =>
             value !== null,
         ),
-      answers: this.visibleQuestions().map((question) =>
+      answers: this.visibleQuestions().filter((question) => this.hasAnswer(question)).map((question) =>
         this.toAnswerPayload(question),
       ),
     };
@@ -740,6 +692,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
       customInputId: input.customInputId,
       stringValue: input.type === 1 ? value : null,
       integerValue: input.type === 2 ? Number(value) : null,
+      dateValue: input.type === 3 ? value : null,
     };
   }
 
@@ -752,10 +705,11 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
     return {
       anonymousTemplateQuestionId: question.anonymousTemplateQuestionId,
       selectedQuestionOptionId:
-        kind === "singleChoice" ? answer.selectedQuestionOptionId : null,
+        kind === "singleChoice" || kind === "dropdown" ? answer.selectedQuestionOptionId : null,
       starRatingValue: kind === "starRating" ? answer.starRatingValue : null,
+      rating1To10Value: kind === "rating1To10" ? answer.rating1To10Value : null,
       smileValue: kind === "smiles" ? answer.smileValue : null,
-      textAnswer: kind === "complain" ? answer.textAnswer.trim() : null,
+      textAnswer: kind === "complain" || kind === "freeText" ? answer.textAnswer.trim() : null,
       voiceFileName: kind === "voice" ? answer.voiceFileName : null,
       imageFile: kind === "image" ? answer.imageFile : null,
     };
@@ -764,32 +718,30 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
   private isConditionMatched(
     condition: PublicAnonymousTemplateQuestionCondition,
     answer: PublicAnonymousAnswerDraft,
+    parent: PublicAnonymousTemplateQuestion,
   ): boolean {
     const normalizedTriggerName = condition.triggerTypeName
       .replace(/[\s_-]/g, "")
       .toLowerCase();
 
-    if (
-      condition.triggerType === 1 ||
-      normalizedTriggerName.includes("single")
-    ) {
+    const trigger = condition.triggerType ?? ({ singlechoiceoption: 1, starratingvalue: 2, smilevalue: 3 } as Record<string, number>)[normalizedTriggerName];
+    const kind = this.questionKind(parent);
+    if (trigger === 1 && kind === "singleChoice") {
       return (
         condition.selectedQuestionOptionId !== null &&
         answer.selectedQuestionOptionId === condition.selectedQuestionOptionId
       );
     }
 
-    if (condition.triggerType === 2 || normalizedTriggerName.includes("star")) {
+    if (trigger === 2 && kind === "starRating") {
       return (
         condition.triggerValue !== null &&
         answer.starRatingValue === condition.triggerValue
       );
     }
 
-    return (
-      condition.triggerValue !== null &&
-      answer.smileValue === condition.triggerValue
-    );
+    return trigger === 3 && kind === "smiles" &&
+      condition.triggerValue !== null && answer.smileValue === condition.triggerValue;
   }
 
   private replaceAnswer(
@@ -956,7 +908,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
       orderedIds.push(questionId);
 
       const answer = answers[questionId];
-      if (!answer) {
+      if (!answer || !this.hasValidAnswer(question, answer)) {
         return;
       }
 
@@ -967,7 +919,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
         .filter(
           (condition) =>
             condition.parentAnonymousTemplateQuestionId === questionId &&
-            this.isConditionMatched(condition, answer),
+            this.isConditionMatched(condition, answer, question),
         )
         .sort((first, second) => first.order - second.order)
         .forEach((condition) =>
@@ -987,69 +939,10 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
       );
   }
 
-  private buildQuestionHierarchyDepths(
-    template: PublicAnonymousTemplate,
-  ): Readonly<Record<string, number>> {
-    const depths: Record<string, number> = {};
-    const childIdsByParent = new Map<string, string[]>();
-
-    template.questionConditions
-      .slice()
-      .sort((first, second) => first.order - second.order)
-      .forEach((condition) => {
-        const childIds =
-          childIdsByParent.get(condition.parentAnonymousTemplateQuestionId) ??
-          [];
-
-        if (!childIds.includes(condition.childAnonymousTemplateQuestionId)) {
-          childIds.push(condition.childAnonymousTemplateQuestionId);
-        }
-
-        childIdsByParent.set(
-          condition.parentAnonymousTemplateQuestionId,
-          childIds,
-        );
-      });
-
-    const visitQuestion = (
-      questionId: string,
-      depth: number,
-      path: ReadonlySet<string>,
-    ): void => {
-      const currentDepth = depths[questionId];
-      if (currentDepth !== undefined && currentDepth <= depth) {
-        return;
-      }
-
-      depths[questionId] = depth;
-
-      if (path.has(questionId)) {
-        return;
-      }
-
-      const nextPath = new Set(path);
-      nextPath.add(questionId);
-
-      (childIdsByParent.get(questionId) ?? []).forEach((childQuestionId) =>
-        visitQuestion(childQuestionId, depth + 1, nextPath),
-      );
-    };
-
-    template.rootAnonymousTemplateQuestionIds.forEach((questionId) =>
-      visitQuestion(questionId, 0, new Set()),
-    );
-
-    template.questions.forEach((question) => {
-      depths[question.anonymousTemplateQuestionId] ??= question.isRoot ? 0 : 1;
-    });
-
-    return depths;
-  }
-
   private isFormValid(template: PublicAnonymousTemplate): boolean {
     const customInputsValid = this.areCustomInputsValid(template);
     const visibleQuestionsValid = this.visibleQuestions().every((question) =>
-      this.hasAnswer(question),
+      this.isQuestionValid(question),
     );
 
     return customInputsValid && visibleQuestionsValid;
@@ -1073,7 +966,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
 
   private moveToFirstInvalidQuestion(): void {
     const firstInvalidQuestionIndex = this.visibleQuestions().findIndex(
-      (question) => !this.hasAnswer(question),
+      (question) => !this.isQuestionValid(question),
     );
 
     if (firstInvalidQuestionIndex >= 0) {
@@ -1093,6 +986,7 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
     return {
       selectedQuestionOptionId: "",
       starRatingValue: null,
+      rating1To10Value: null,
       smileValue: null,
       textAnswer: "",
       voiceFileName: "",
@@ -1106,7 +1000,8 @@ export class PublicAnonymousTemplatePageComponent implements OnInit, OnDestroy {
 
   private readInputValue(event: Event): string {
     return event.target instanceof HTMLInputElement ||
-      event.target instanceof HTMLTextAreaElement
+      event.target instanceof HTMLTextAreaElement ||
+      event.target instanceof HTMLSelectElement
       ? event.target.value
       : "";
   }
